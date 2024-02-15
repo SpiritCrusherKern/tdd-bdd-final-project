@@ -135,14 +135,14 @@ class TestProductRoutes(TestCase):
         #
 
         # # Check that the location header was correct
-        # response = self.client.get(location)
-        # self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # new_product = response.get_json()
-        # self.assertEqual(new_product["name"], test_product.name)
-        # self.assertEqual(new_product["description"], test_product.description)
-        # self.assertEqual(Decimal(new_product["price"]), test_product.price)
-        # self.assertEqual(new_product["available"], test_product.available)
-        # self.assertEqual(new_product["category"], test_product.category.name)
+        response = self.client.get(location)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        new_product = response.get_json()
+        self.assertEqual(new_product["name"], test_product.name)
+        self.assertEqual(new_product["description"], test_product.description)
+        self.assertEqual(Decimal(new_product["price"]), test_product.price)
+        self.assertEqual(new_product["available"], test_product.available)
+        self.assertEqual(new_product["category"], test_product.category.name)
 
     def test_create_product_with_no_name(self):
         """It should not Create a Product without a name"""
@@ -166,6 +166,66 @@ class TestProductRoutes(TestCase):
     #
     # ADD YOUR TEST CASES HERE
     #
+    def test_get_product(self):
+        """It should Read a Product from the database"""
+        test_product = self._create_products()[0]
+        response = self.client.get(f"{BASE_URL}/{test_product.id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(data["name"], test_product.name)
+    
+    def test_get_product_not_found(self):
+        """ It should Read a Product which is not found in the database"""
+        response = self.client.get(f"{BASE_URL}/{1000}")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        data = response.get_json()
+        self.assertIn("was not found", data["message"])
+
+    def test_update_product(self):
+        """It should Update a Product from the database"""
+        # create a product
+        test_product = ProductFactory()
+        logging.debug("Test Product: %s", test_product.serialize())
+        response = self.client.post(BASE_URL, json=test_product.serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # update the product 
+        created_product = response.get_json()
+        created_product["description"]="THIS IS A NEW DESCRIPTION"
+        response = self.client.put(f"{BASE_URL}/{created_product['id']}", json=created_product)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(data["description"], "THIS IS A NEW DESCRIPTION")
+
+    def test_delete_product(self):
+        """It should Delete a Product from the database"""
+        # create a product
+        test_product = ProductFactory()
+        logging.debug("Test Product: %s", test_product.serialize())
+        response = self.client.post(BASE_URL, json=test_product.serialize())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # delete the product 
+        created_product_id = response.get_json()['id']
+        response = self.client.delete(f"{BASE_URL}/{created_product_id}")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # check that id is not available
+        response = self.client.get(f"{BASE_URL}/{created_product_id}")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        data = response.get_json()
+        self.assertIn("was not found", data["message"])
+
+    def test_list_all_products(self):
+        """It should List all Products form the database"""
+        # create multiple products
+        self._create_products(5)
+        
+        # retrieve all items in database
+        response = self.client.get(BASE_URL)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.get_json()
+        self.assertEqual(len(data), 5)
 
     ######################################################################
     # Utility functions
